@@ -37,7 +37,10 @@ function Frame({ question, children, summary }: { question: string; children: Re
 }
 
 export function SinceCheckChart({ data, symbol, sectorSymbol }: { data: History["since_check"]; symbol: string; sectorSymbol: string | null }) {
-  const rows = data.map((d) => ({ ...d, t: new Date(d.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) }));
+  const span = data.length > 1 ? new Date(data.at(-1)!.at).getTime() - new Date(data[0].at).getTime() : 0;
+  const opts: Intl.DateTimeFormatOptions =
+    span > 2 * 86400_000 ? { month: "short", day: "numeric" } : span > 3600_000 ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric", minute: "2-digit", second: "2-digit" };
+  const rows = data.map((d) => ({ ...d, t: new Date(d.at).toLocaleString([], opts) }));
   const last = rows.at(-1);
   return (
     <div className="space-y-2">

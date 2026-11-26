@@ -142,8 +142,11 @@ def stock_detail(symbol: str, user: User = Depends(get_current_user), db: Sessio
     ev = item.event if item.event is not None and item.event.status == "ACTIVE" else None
     bench = latest_snapshots(db, [MARKET_BENCHMARK] + ([stock.sector_benchmark] if stock.sector_benchmark else []))
     events = list(db.scalars(select(MarketEvent).where(MarketEvent.symbol == symbol).order_by(MarketEvent.event_time.desc()).limit(10)))
-    conflict = db.scalar(
-        select(DataConflict).where(DataConflict.symbol == symbol, DataConflict.detected_at >= datetime.now(UTC) - timedelta(hours=24)).order_by(DataConflict.detected_at.desc()).limit(1)
+    # Only surface a conflict that applies to the price being shown right now.
+    conflict = (
+        db.scalar(select(DataConflict).where(DataConflict.snapshot_id == stock.latest_snapshot_id).limit(1))
+        if stock.latest_snapshot_id
+        else None
     )
     s_stock, s_snap = bench.get(stock.sector_benchmark or "", (None, None))
     m_stock, m_snap = bench.get(MARKET_BENCHMARK, (None, None))

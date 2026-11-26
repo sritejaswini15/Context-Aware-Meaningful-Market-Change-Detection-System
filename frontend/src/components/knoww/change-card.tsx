@@ -64,7 +64,7 @@ export function ChangeCard({ change, onOpen, compact = false }: { change: Change
               Today <span className="num font-medium text-foreground">{fmtPct(change.day_change_pct)}</span>
             </div>
           </div>
-          <p className="text-sm leading-relaxed text-foreground/90">{change.summary ?? change.headline}</p>
+          <p className="text-sm leading-relaxed text-foreground/90">{change.headline}</p>
           <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <div>
               <dt className="inline">{change.sector ?? "Sector"}: </dt>
@@ -112,7 +112,7 @@ export function ExplanationBlock({ explanation }: { explanation: Explanation }) 
               <Sparkles aria-hidden className="size-3" /> AI explanation of verified facts
             </>
           ) : (
-            <>Generated from verified facts{explanation.error ? " (AI unavailable)" : ""}</>
+            <>Generated from verified facts{explanation.error ? ` (${/not configured/i.test(explanation.error) ? "AI not configured" : "AI unavailable"})` : ""}</>
           )}
         </span>
       </div>
