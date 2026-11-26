@@ -314,6 +314,13 @@ export const HealthSchema = z.object({
   ),
   last_market_update: nstr,
   conflicts_24h: num,
+  product_metrics: z.object({
+    meaningful_changes_7d: num,
+    high_attention_7d: num,
+    high_reviewed_pct: nnum,
+    median_seconds_to_first_look: nnum,
+    signals_evaluated_7d: num,
+  }),
   environment: z.string(),
   version: z.string(),
   demo_mode: z.boolean(),

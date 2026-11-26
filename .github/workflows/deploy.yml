@@ -1,0 +1,59 @@
+name: Deploy
+
+# Manual, approval-gated deployment to AWS. Requires:
+#   - repository variable AWS_REGION (e.g. ap-south-1) and AWS_ENVIRONMENT (e.g. prod)
+#   - repository secret AWS_DEPLOY_ROLE_ARN: an IAM role trusted for GitHub OIDC
+#     with ECR push, ECS update/run-task and iam:PassRole on the task roles.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      NAME: knoww-${{ vars.AWS_ENVIRONMENT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t $REGISTRY/$NAME-api:$SHA -t $REGISTRY/$NAME-api:latest backend
+          docker build -t $REGISTRY/$NAME-web:$SHA -t $REGISTRY/$NAME-web:latest frontend
+          docker push --all-tags $REGISTRY/$NAME-api
+          docker push --all-tags $REGISTRY/$NAME-web
+
+      - name: Run database migrations (one-off Fargate task)
+        run: |
+          SUBNETS=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=$NAME-private-*" --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
+          SG=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$NAME-app" --query 'SecurityGroups[0].GroupId' --output text)
+          TASK=$(aws ecs run-task --cluster $NAME --launch-type FARGATE --task-definition $NAME-api \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["migrate"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          aws ecs wait tasks-stopped --cluster $NAME --tasks $TASK
+          CODE=$(aws ecs describe-tasks --cluster $NAME --tasks $TASK --query 'tasks[0].containers[0].exitCode' --output text)
+          test "$CODE" = "0"
+
+      - name: Roll out services
+        run: |
+          for svc in api worker web; do
+            aws ecs update-service --cluster $NAME --service $svc --force-new-deployment > /dev/null
+          done
+          aws ecs wait services-stable --cluster $NAME --services api worker web

@@ -1,0 +1,13 @@
+output "app_url" { value = local.app_url }
+output "alb_dns_name" { value = module.ecs.alb_dns_name }
+output "ecr_api_repository" { value = module.ecs.ecr_api_url }
+output "ecr_web_repository" { value = module.ecs.ecr_web_url }
+output "ecs_cluster" { value = module.ecs.cluster_name }
+output "api_task_family" { value = module.ecs.api_task_family }
+output "private_subnet_ids" { value = module.network.private_subnet_ids }
+output "app_security_group_id" { value = module.network.app_security_group_id }
+output "cognito_user_pool_id" { value = module.cognito.user_pool_id }
+output "cognito_client_id" { value = module.cognito.client_id }
+output "app_secret_arn" { value = aws_secretsmanager_secret.app.arn }
+output "jobs_queue_url" { value = module.queue.queue_url }
+output "alarm_topic_arn" { value = module.monitoring.alarm_topic_arn }

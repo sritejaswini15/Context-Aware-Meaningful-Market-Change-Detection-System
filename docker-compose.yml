@@ -1,0 +1,75 @@
+# Local, production-shaped stack: Postgres, Redis, an SQS-compatible queue (ElasticMQ),
+# the API, the background worker (which also runs the scheduler locally), and the web app.
+x-backend-env: &backend-env
+  APP_ENV: development
+  DATABASE_URL: postgresql+psycopg://knoww:knoww@postgres:5432/knoww
+  REDIS_URL: redis://redis:6379/0
+  QUEUE_BACKEND: sqs
+  SQS_QUEUE_URL: http://elasticmq:9324/000000000000/knoww-jobs
+  AWS_ENDPOINT_URL: http://elasticmq:9324
+  AWS_REGION: ap-south-1
+  AWS_ACCESS_KEY_ID: local
+  AWS_SECRET_ACCESS_KEY: local
+  CORS_ORIGINS: http://localhost:3000
+  MARKET_PROVIDERS: ${MARKET_PROVIDERS:-mock,mock-reference}
+  FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+  AI_PROVIDER: ${AI_PROVIDER:-none}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-}
+  JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+  DEMO_MODE: "true"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: knoww
+      POSTGRES_PASSWORD: knoww
+      POSTGRES_DB: knoww
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knoww"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.6.11
+    volumes: ["./infra/local/elasticmq.conf:/opt/elasticmq.conf:ro"]
+    ports: ["9324:9324"]
+
+  backend:
+    build: ./backend
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "true"
+      SCHEDULER_MODE: "off"
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      elasticmq: { condition: service_started }
+
+  worker:
+    build: ./backend
+    command: ["worker"]
+    environment:
+      <<: *backend-env
+      SCHEDULER_MODE: local
+    depends_on:
+      backend: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_INTERNAL_URL: http://backend:8000
+    ports: ["3000:3000"]
+    depends_on: [backend]
+
+volumes:
+  pgdata:

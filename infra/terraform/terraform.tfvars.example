@@ -1,0 +1,12 @@
+region            = "ap-south-1"
+environment       = "prod"
+domain_name       = "knoww.example.com"
+certificate_arn   = "arn:aws:acm:ap-south-1:123456789012:certificate/replace-me"
+market_providers  = "finnhub"
+ai_provider       = "anthropic"
+demo_mode         = false
+alarm_email       = "alerts@example.com"
+
+# For an evaluator demo on AWS with deterministic scenarios instead:
+# market_providers = "mock,mock-reference"
+# demo_mode        = true

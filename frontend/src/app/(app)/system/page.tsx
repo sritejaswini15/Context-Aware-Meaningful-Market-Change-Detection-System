@@ -95,6 +95,28 @@ export default function SystemPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Signal quality (last 7 days)</CardTitle>
+          <CardDescription>Knoww is measured on signal quality, not alert volume.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 sm:grid-cols-4">
+            {[
+              ["Signals evaluated", data.product_metrics.signals_evaluated_7d.toLocaleString()],
+              ["Meaningful changes surfaced", data.product_metrics.meaningful_changes_7d.toLocaleString()],
+              ["High-attention reviewed", data.product_metrics.high_reviewed_pct === null ? "—" : `${data.product_metrics.high_reviewed_pct}%`],
+              ["Median time to first look", data.product_metrics.median_seconds_to_first_look === null ? "—" : `${Math.round(data.product_metrics.median_seconds_to_first_look / 60)} min`],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-xs text-muted-foreground">{k}</dt>
+                <dd className="num text-xl font-semibold">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
       {scenarios.data?.enabled && (
         <Card>
           <CardHeader>

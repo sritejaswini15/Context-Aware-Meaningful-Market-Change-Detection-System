@@ -27,6 +27,13 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://knoww:knoww@localhost:5432/knoww"
     database_pool_size: int = 5
+    # In AWS, ECS injects these separately (password from the RDS-managed secret);
+    # when DB_HOST is set they take precedence over DATABASE_URL.
+    db_host: str | None = None
+    db_port: int = 5432
+    db_name: str = "knoww"
+    db_user: str | None = None
+    db_password: str | None = None
     redis_url: str | None = None
 
     cors_origins: str = "http://localhost:3000"
@@ -74,6 +81,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
+        if self.db_host and self.db_user and self.db_password:
+            from urllib.parse import quote_plus
+
+            self.database_url = (
+                f"postgresql+psycopg://{quote_plus(self.db_user)}:{quote_plus(self.db_password)}"
+                f"@{self.db_host}:{self.db_port}/{self.db_name}?sslmode=require"
+            )
         if self.app_env == "production":
             if self.auth_mode == "local" and self.jwt_secret == DEV_JWT_SECRET:
                 raise ValueError("JWT_SECRET must be set in production")

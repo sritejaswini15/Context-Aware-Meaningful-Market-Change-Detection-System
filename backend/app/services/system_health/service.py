@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import get_cache
 from app.core.config import get_settings
-from app.models import AppState, DataConflict, DataSource, SignalScore, SystemHealth
+from app.models import AppState, ChangeEvent, DataConflict, DataSource, SignalScore, SystemHealth
 from app.providers.ai.registry import ai_configured, get_ai_provider
 from app.workers.queue import get_queue
 
@@ -110,6 +110,20 @@ def health_report(db: Session) -> dict:
         w_status, w_detail = "DEGRADED", "No recent worker heartbeat"
     components.append({"key": "worker", "name": "Background Worker", "status": w_status, "detail": w_detail})
 
+    # Product metrics. Attention precision needs labelled outcomes; until users can rate
+    # signals, "reviewed" share and time-to-first-look are the measurable proxies.
+    week = now - timedelta(days=7)
+    events = list(db.execute(select(ChangeEvent.peak_attention, ChangeEvent.state, ChangeEvent.created_at, ChangeEvent.seen_at).where(ChangeEvent.created_at >= week)))
+    high = [e for e in events if e.peak_attention == "HIGH"]
+    seen_secs = sorted((e.seen_at - e.created_at).total_seconds() for e in events if e.seen_at)
+    product = {
+        "meaningful_changes_7d": len(events),
+        "high_attention_7d": len(high),
+        "high_reviewed_pct": round(100 * sum(1 for e in high if e.state == "ACKNOWLEDGED") / len(high), 1) if high else None,
+        "median_seconds_to_first_look": int(seen_secs[len(seen_secs) // 2]) if seen_secs else None,
+        "signals_evaluated_7d": db.scalar(select(func.count(SignalScore.id)).where(SignalScore.created_at >= week)) or 0,
+    }
+
     conflicts_24h = db.scalar(select(func.count(DataConflict.id)).where(DataConflict.detected_at >= now - timedelta(hours=24))) or 0
     order = {"DOWN": 3, "DEGRADED": 2, "NOT_CONFIGURED": 1, "HEALTHY": 0}
     worst = max((c for c in components if c["key"] in ("database", "market_data", "signal_engine")), key=lambda c: order[c["status"]])
@@ -133,6 +147,7 @@ def health_report(db: Session) -> dict:
         ],
         "last_market_update": last_at,
         "conflicts_24h": conflicts_24h,
+        "product_metrics": product,
         "environment": s.app_env,
         "version": s.app_version,
         "demo_mode": s.demo_mode,
