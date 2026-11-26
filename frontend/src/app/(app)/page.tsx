@@ -42,7 +42,7 @@ function SummaryStrip({ cc }: { cc: CommandCenter }) {
     { label: "Quiet", value: c.low, level: "LOW" as const },
   ];
   return (
-    <Card className="grid gap-4 p-5 sm:grid-cols-[1.4fr_repeat(3,1fr)] sm:items-center">
+    <Card className="grid gap-4 p-4 sm:grid-cols-[1.2fr_2fr] sm:items-center sm:p-5">
       <div>
         <p className="num text-4xl font-semibold tracking-tight">
           {c.meaningful}
@@ -52,13 +52,17 @@ function SummaryStrip({ cc }: { cc: CommandCenter }) {
           Out of {c.tracked} stock{c.tracked === 1 ? "" : "s"} you follow{c.reviewed ? ` · ${c.reviewed} already reviewed` : ""}
         </p>
       </div>
-      {items.map((i) => (
-        <div key={i.label} className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2.5 sm:flex-col sm:items-start">
-          <AttentionBadge level={i.level} compact />
-          <span className="num text-xl font-semibold">{i.value}</span>
-          <span className="sr-only">{i.label}</span>
-        </div>
-      ))}
+      <dl className="grid grid-cols-3 gap-2">
+        {items.map((i) => (
+          <div key={i.label} className="flex flex-col items-start gap-1.5 rounded-lg bg-muted/60 px-3 py-2.5">
+            <dt>
+              <AttentionBadge level={i.level} compact />
+              <span className="sr-only">{i.label}</span>
+            </dt>
+            <dd className="num text-xl font-semibold">{i.value}</dd>
+          </div>
+        ))}
+      </dl>
     </Card>
   );
 }
